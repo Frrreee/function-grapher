@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Function Grapher</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Load Plotly asynchronously to prevent UI blocking -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Trace Graphs</h1>
+            <p>Enter a mathematical function or equation to visualize its trace instantly.</p>
+        </header>
+        
+        <main>
+            <div class="input-section">
+                <div class="input-wrapper">
+                    <input type="text" id="functionInput" placeholder="e.g. x^2 + y^2 = 25 or sin(x)" autocomplete="off">
+                </div>
+                <button id="plotBtn">Plot Graph</button>
+            </div>
+            
+            <div class="keyboard" id="mathKeyboard">
+                <button type="button" class="key" data-val="7">7</button>
+                <button type="button" class="key" data-val="8">8</button>
+                <button type="button" class="key" data-val="9">9</button>
+                <button type="button" class="key" data-val="/">/</button>
+                <button type="button" class="key" data-val="sin(">sin</button>
+                <button type="button" class="key" data-val="cos(">cos</button>
+                <button type="button" class="key" data-val="tan(">tan</button>
+                
+                <button type="button" class="key" data-val="4">4</button>
+                <button type="button" class="key" data-val="5">5</button>
+                <button type="button" class="key" data-val="6">6</button>
+                <button type="button" class="key" data-val="*">*</button>
+                <button type="button" class="key" data-val="log(">log</button>
+                <button type="button" class="key" data-val="exp(">exp</button>
+                <button type="button" class="key" data-val="pi">π</button>
+                
+                <button type="button" class="key" data-val="1">1</button>
+                <button type="button" class="key" data-val="2">2</button>
+                <button type="button" class="key" data-val="3">3</button>
+                <button type="button" class="key" data-val="-">-</button>
+                <button type="button" class="key" data-val="(">(</button>
+                <button type="button" class="key" data-val=")">)</button>
+                <button type="button" class="key" data-val="x">x</button>
+                
+                <button type="button" class="key" data-val="0">0</button>
+                <button type="button" class="key" data-val=".">.</button>
+                <button type="button" class="key" data-val="=">=</button>
+                <button type="button" class="key" data-val="+">+</button>
+                <button type="button" class="key" data-val="y">y</button>
+                <button type="button" class="key" data-val="^">^</button>
+                <button type="button" class="key" data-val="sqrt(">√</button>
+                
+                <button type="button" class="key col-span-2 action-key" data-action="backspace">⌫</button>
+                <button type="button" class="key col-span-2 action-key" data-action="clear">Clear</button>
+            </div>
+            
+            <div id="error-message" class="error-message hidden"></div>
+            
+            <div class="graph-container">
+                <div id="graph"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const plotBtn = document.getElementById('plotBtn');
+            const functionInput = document.getElementById('functionInput');
+            const graphDiv = document.getElementById('graph');
+            const errorMessage = document.getElementById('error-message');
+            const mathKeyboard = document.getElementById('mathKeyboard');
+
+            // Keyboard event delegation
+            mathKeyboard.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+
+                const val = button.getAttribute('data-val');
+                const action = button.getAttribute('data-action');
+
+                if (val !== null) {
+                    insertAtCursor(functionInput, val);
+                } else if (action === 'backspace') {
+                    backspace(functionInput);
+                } else if (action === 'clear') {
+                    functionInput.value = '';
+                    functionInput.focus();
+                }
+            });
+
+            const insertAtCursor = (input, text) => {
+                const scrollPos = input.scrollTop;
+                let caretPos = input.selectionStart;
+                const front = (input.value).substring(0, caretPos);
+                const back = (input.value).substring(input.selectionEnd, input.value.length);
+                input.value = front + text + back;
+                caretPos = caretPos + text.length;
+                input.selectionStart = caretPos;
+                input.selectionEnd = caretPos;
+                input.focus();
+                input.scrollTop = scrollPos;
+            };
+
+            const backspace = (input) => {
+                let caretPos = input.selectionStart;
+                if (caretPos > 0) {
+                    const front = (input.value).substring(0, caretPos - 1);
+                    const back = (input.value).substring(input.selectionEnd, input.value.length);
+                    input.value = front + back;
+                    input.selectionStart = caretPos - 1;
+                    input.selectionEnd = caretPos - 1;
+                }
+                input.focus();
+            };
+
+            // Initial empty plot
+            const layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                margin: { t: 30, r: 20, l: 40, b: 40 },
+                xaxis: { 
+                    title: 'x', 
+                    gridcolor: '#333', 
+                    zerolinecolor: '#666',
+                    color: '#e0e0e0'
+                },
+                yaxis: { 
+                    title: 'y', 
+                    gridcolor: '#333', 
+                    zerolinecolor: '#666',
+                    color: '#e0e0e0'
+                },
+                font: { family: 'Inter, sans-serif' },
+                hovermode: 'closest'
+            };
+
+            Plotly.newPlot(graphDiv, [], layout, {responsive: true});
+
+            const plotFunction = async () => {
+                const expression = functionInput.value.trim();
+                if (!expression) return;
+
+                // UI loading state
+                plotBtn.disabled = true;
+                plotBtn.textContent = 'Plotting...';
+                errorMessage.classList.add('hidden');
+
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    
+                    const response = await fetch('/api/evaluate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ expression }),
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Failed to evaluate function');
+                    }
+
+                    let trace;
+                    const dynamicLayout = JSON.parse(JSON.stringify(layout));
+
+                    if (data.type === 'implicit') {
+                        trace = {
+                            x: data.x,
+                            y: data.y,
+                            z: data.z,
+                            type: 'contour',
+                            showscale: false,
+                            contours: {
+                                coloring: 'none',
+                                start: 0,
+                                end: 0,
+                                size: 1
+                            },
+                            line: {
+                                color: '#00f2fe',
+                                width: 3
+                            },
+                            name: expression
+                        };
+                        dynamicLayout.yaxis.title.text = 'y';
+                    } else {
+                        trace = {
+                            x: data.x,
+                            y: data.y,
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: {
+                                color: '#00f2fe',
+                                width: 3
+                            },
+                            name: `y = ${expression}`
+                        };
+                        dynamicLayout.yaxis.title.text = 'f(x)';
+                    }
+
+                    Plotly.react(graphDiv, [trace], dynamicLayout);
+                } catch (error) {
+                    errorMessage.textContent = error.message;
+                    errorMessage.classList.remove('hidden');
+                } finally {
+                    plotBtn.disabled = false;
+                    plotBtn.textContent = 'Plot Graph';
+                }
+            };
+
+            plotBtn.addEventListener('click', plotFunction);
+            functionInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    plotFunction();
+                }
+            });
+            
+            // Default plot
+            functionInput.value = 'x^2 + y^2 = 25';
+            plotFunction();
+        });
+    </script>
+</body>
+</html>
