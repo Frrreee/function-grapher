@@ -1,0 +1,68 @@
+name: Build OpenFlow Whisper Android APK (Mobile Single-File Builder)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore embedded Android project
+        shell: bash
+        env:
+          ANDROID_PROJECT_BASE64: |
+            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
+        run: |
+          set -euo pipefail
+          printf '%s' "$ANDROID_PROJECT_BASE64" | base64 -d > /tmp/android-project.tar.gz
+          tar -xzf /tmp/android-project.tar.gz -C "$GITHUB_WORKSPACE"
+
+      - name: Clone whisper.cpp
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git whisper.cpp
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK and NDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses
+          sdkmanager             "platform-tools"             "platforms;android-34"             "build-tools;34.0.0"             "ndk;26.3.11579264"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> "$GITHUB_ENV"
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build debug and release APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle assembleDebug assembleRelease --no-daemon
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenFlow-Whisper-Android-APKs
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
